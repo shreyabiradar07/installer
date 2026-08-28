@@ -286,6 +286,13 @@ uninstall_prometheus() {
         return 0
     fi
 
+    # Guard: if the cluster API is unreachable (e.g. Kind cluster is not running),
+    # skip all kubectl/helm operations — there is nothing to delete in a stopped cluster.
+    if ! ${KUBE_CLI} cluster-info --request-timeout=5s &>/dev/null; then
+        write_to_log_file "WARN" "Cluster API is unreachable — skipping Prometheus uninstall (cluster not running)"
+        return 0
+    fi
+
     if ! check_command_exists helm; then
         write_to_log_file "WARN" "helm not found — skipping Prometheus uninstall"
         return 0
