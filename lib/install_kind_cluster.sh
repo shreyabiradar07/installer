@@ -86,9 +86,11 @@ _start_local_registry() {
 }
 
 # _check_ports_available — fails with a clear message if any required host port is in use.
-# Only checks the two host-mapped Kind node ports (30000, 30004). Ports 30001 (Causa
-# Backend), 30003 (Jafra MCP) and 30005 (Causa MCP) have no hostPort mapping and are not
-# bound on the host — Causa Backend/MCP are reached via `kubectl port-forward`. Registry
+# Checks 30000/30004 (the host-mapped Kind node NodePorts) plus 30001 (Causa Backend) and
+# 30005 (Causa MCP). The latter two have no kind hostPort mapping, but the demo starts
+# `kubectl port-forward` on exactly those host ports, so a non-Kind process occupying either
+# would let install succeed yet break the advertised port-forward access — catch it early.
+# 30003 (Jafra MCP) is neither host-mapped nor port-forwarded, so it is not checked. Registry
 # port is excluded because _start_local_registry runs first and manages it idempotently.
 #
 # gvproxy / rootlessport stale-lease exception (Linux rootless Podman only):
@@ -99,7 +101,7 @@ _start_local_registry() {
 #   gvproxy/rootlessport AND no running container is currently publishing that port —
 #   confirming it is truly a stale lease rather than an active conflict.
 _check_ports_available() {
-    local ports=(30000 30004)
+    local ports=(30000 30001 30004 30005)
     local blocked=()
     local runtime="${CONTAINER_RUNTIME:-docker}"
 
