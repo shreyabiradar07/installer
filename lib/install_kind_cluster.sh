@@ -164,7 +164,7 @@ nodes:
   - role: control-plane
     image: kindest/node:v1.31.14
     # causa-backend (8080) and causa-mcp (8081) are ClusterIP services reached
-    # from the host via `kubectl port-forward` (see demo.sh), so they get no
+    # from the host via kubectl port-forward (see demo.sh), so they get no
     # host mapping here.  Only the k8s-mcp (30000) and quarkus-mcp (30004)
     # NodePorts are published to the host.
     extraPortMappings:
