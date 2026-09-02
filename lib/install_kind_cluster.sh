@@ -35,7 +35,11 @@ export KIND_CLUSTER_NAME KIND_REGISTRY_NAME KIND_REGISTRY_PORT
 # _kind_cluster_exists  — returns 0 if the cluster is already present
 # ---------------------------------------------------------------------------
 _kind_cluster_exists() {
-    kind get clusters 2>/dev/null | grep -q "^${KIND_CLUSTER_NAME}$"
+    # Must target the same provider used to create the cluster, otherwise a
+    # podman-backed cluster is invisible to the default (docker) provider and
+    # the check wrongly returns false — causing a redundant re-create attempt.
+    KIND_EXPERIMENTAL_PROVIDER="${CONTAINER_RUNTIME:-docker}" \
+        kind get clusters 2>/dev/null | grep -q "^${KIND_CLUSTER_NAME}$"
 }
 
 # ---------------------------------------------------------------------------
@@ -196,7 +200,8 @@ _write_registry_hosts_toml() {
     local hosts_toml
     hosts_toml=$(printf '[host."http://%s:5000"]\n  capabilities = ["pull", "resolve"]\n' "${KIND_REGISTRY_NAME}")
 
-    for node in $(kind get nodes --name "${KIND_CLUSTER_NAME}" 2>/dev/null); do
+    for node in $(KIND_EXPERIMENTAL_PROVIDER="${CONTAINER_RUNTIME:-docker}" \
+                    kind get nodes --name "${KIND_CLUSTER_NAME}" 2>/dev/null); do
         ${runtime} exec "${node}" mkdir -p "${hosts_dir}" >>"${LOG_FILE}" 2>&1
         ${runtime} exec "${node}" sh -c \
             "printf '%s\n' '${hosts_toml}' > ${hosts_dir}/hosts.toml" >>"${LOG_FILE}" 2>&1
@@ -459,7 +464,8 @@ uninstall_kind_cluster() {
     # false even for a cluster that was genuinely present.
     if [[ "${cluster_existed}" == "true" ]]; then
         write_to_log_file "INFO" "Deleting Kind cluster '${KIND_CLUSTER_NAME}'..."
-        if ! kind delete cluster --name "${KIND_CLUSTER_NAME}" >>"${LOG_FILE}" 2>&1; then
+        if ! KIND_EXPERIMENTAL_PROVIDER="${CONTAINER_RUNTIME:-docker}" \
+                kind delete cluster --name "${KIND_CLUSTER_NAME}" >>"${LOG_FILE}" 2>&1; then
             # node containers are already removed above; kind delete may emit a
             # harmless "node not found" error — treat that as success, fail on
             # anything else.
